@@ -77,22 +77,30 @@ require('scaffolder').setup({
 {
   "name": "Example Snippet",
   "description": "Creates a basic directory structure",
+  "folder_case": "kebab",  // Optional: How to format folder names (kebab, snake, camel, pascal, upper, lower, original)
   "files": [
     {
-      "path": "${name}/index.ts",
+      "path": "${folder_name}/index.ts",
       "content": "export * from './${name:kebab}.service';\n"
     },
     {
-      "path": "${name}/${name:kebab}.service.ts",
+      "path": "${folder_name}/${name:kebab}.service.ts",
       "content": "console.log('This is the ${name:pascal} service');\n"
     },
     {
-      "path": "${name}/__tests__/",
+      "path": "${folder_name}/__tests__/",
       "content": ""
     },
     {
-      "path": "${name}/types/${name:kebab}.type.ts",
-      "content": "export type ${name:pascal} = {\n  id: string;\n};\n"
+      "path": "${folder_name}/types/${name:kebab}.type.ts",
+      // Multiline content using array of strings (each item is a line)
+      "content": [
+        "export type ${name:pascal} = {",
+        "  id: string;",
+        "  name: string;",
+        "  createdAt: Date;",
+        "};"
+      ]
     }
   ]
 }
@@ -103,6 +111,7 @@ require('scaffolder').setup({
 You can use format specifiers to apply case transformations to variables:
 
 - `${name}` - As entered (e.g., "test")
+- `${folder_name}` - Uses case format specified in `folder_case` (or original if not specified)
 - `${name:pascal}` - PascalCase (e.g., "TestName" from any input format)
 - `${name:camel}` - camelCase (e.g., "testName" from any input format)
 - `${name:snake}` - snake_case (e.g., "test_name" from any input format)
@@ -112,6 +121,57 @@ You can use format specifiers to apply case transformations to variables:
 Case transformations handle any input format consistently. For example, all of these inputs:
 `test-file`, `TESTFILE`, `Test_File`, `testFile`, `TestFile` will produce the same consistent output
 in each format.
+
+### Folder Case Preference
+
+You can set a specific case format for folder names in your template using the `folder_case` field:
+
+```json
+{
+  "name": "My Template",
+  "folder_case": "kebab",  // Will create folders in kebab-case
+  "files": [
+    // ...
+  ]
+}
+```
+
+Valid options for `folder_case` are:
+- `"original"` - Use the name exactly as entered (default)
+- `"kebab"` - Use kebab-case (e.g., "my-component")
+- `"snake"` - Use snake_case (e.g., "my_component")
+- `"camel"` - Use camelCase (e.g., "myComponent")
+- `"pascal"` - Use PascalCase (e.g., "MyComponent")
+- `"upper"` - Use UPPER_CASE (e.g., "MY_COMPONENT")
+- `"lower"` - Use lowercase (e.g., "mycomponent")
+
+The `${folder_name}` variable in paths will automatically use the specified case format.
+
+### Multiline Content
+
+You can define multiline file content in two ways:
+
+1. **Using escaped newlines** (traditional approach)
+   ```json
+   {
+     "path": "file.txt",
+     "content": "Line 1\nLine 2\nLine 3"
+   }
+   ```
+
+2. **Using arrays of strings** (recommended for readability)
+   ```json
+   {
+     "path": "file.txt",
+     "content": [
+       "Line 1",
+       "Line 2",
+       "Line 3"
+     ]
+   }
+   ```
+
+Using arrays of strings makes templates more readable, especially for large code files. Variable substitution works in both formats, and you can mix both approaches in the same template.
 
 ## Example
 

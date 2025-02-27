@@ -322,6 +322,14 @@ end
 
 -- Function to create directories and files based on snippet
 local function create_from_snippet(snippet_path, name, root_dir, opts)
+  -- Display where we're creating files
+  if root_dir then
+    local parent_folder = vim.fn.fnamemodify(root_dir, ":t")
+    vim.notify("Creating files in: " .. parent_folder, vim.log.levels.INFO)
+  else
+    vim.notify("Creating files in current directory", vim.log.levels.INFO)
+  end
+  
   -- Read the snippet JSON file
   local file = io.open(snippet_path, "r")
   if not file then
@@ -389,8 +397,21 @@ local function create_from_snippet(snippet_path, name, root_dir, opts)
     vim.fn.mkdir(dir_path, "p")
     table.insert(created_dirs, dir_path)
     
-    -- Replace variables in file content
-    local file_content = replace_variables(file_entry.content or "", variables)
+    -- Process content based on type (string or array)
+    local file_content = ""
+    local content = file_entry.content or ""
+    
+    if type(content) == "table" then
+      -- Handle array of lines (join with newlines)
+      for i, line in ipairs(content) do
+        -- Apply variable replacement to each line
+        content[i] = replace_variables(line, variables)
+      end
+      file_content = table.concat(content, "\n")
+    else
+      -- Handle regular string
+      file_content = replace_variables(content, variables)
+    end
     
     -- Create the file (only if there's content or it's explicitly a file)
     if file_content ~= "" or not file_path:match("/$") then
@@ -459,32 +480,111 @@ end
 local function get_mini_files_current_dir()
   local has_mini_files, mini_files = pcall(require, "mini.files")
   if not has_mini_files then
+    -- Silently fail - this is caught elsewhere
     return nil
   end
   
-  -- Use MiniFiles.get_explorer_state() if available
+  -- Try to find the filetype first to confirm we're in mini.files
+  local cur_buf = vim.api.nvim_get_current_buf()
+  local ok, buf_type = pcall(vim.api.nvim_buf_get_option, cur_buf, "filetype") 
+  if ok and buf_type == "minifiles" then
+    -- We're definitely in a mini.files buffer, so try to get the current line
+    local cur_win = vim.api.nvim_get_current_win()
+    local cursor = vim.api.nvim_win_get_cursor(cur_win)
+    local line = vim.api.nvim_buf_get_lines(cur_buf, cursor[1]-1, cursor[1], false)[1]
+    
+    -- Try to get the buffer var with current_dir
+    local ok_var, mini_data = pcall(vim.api.nvim_buf_get_var, cur_buf, "mini_files")
+    if ok_var and mini_data and mini_data.current_dir then
+      local cur_dir = mini_data.current_dir
+      
+      -- Check if current line is a directory and navigate into it
+      if line and line:match("%S+") and line ~= ".." then
+        local entry = line:match("^%s*(.-)%s*$")
+        local full_path = cur_dir .. "/" .. entry
+        if vim.fn.isdirectory(full_path) == 1 then
+          return full_path
+        end
+      end
+      
+      -- Otherwise use the current directory
+      return cur_dir
+    end
+  end
+  
+  -- Use MiniFiles.get_explorer_state() if available (newer versions)
   if mini_files.get_explorer_state then
     local explorer_state = mini_files.get_explorer_state()
     if explorer_state and explorer_state.windows and #explorer_state.windows > 0 then
-      local win_data = explorer_state.windows[explorer_state.depth_focus]
+      -- Get current cursor positions to determine exact directory
+      local win_id = vim.api.nvim_get_current_win()
+      
+      -- First check which window of explorer is focused
+      local focus_depth = explorer_state.depth_focus or 1
+      local win_data = explorer_state.windows[focus_depth]
+      
       if win_data and win_data.path then
+        -- Now check if there's a cursor on a directory entry
+        local cursor_pos = vim.api.nvim_win_get_cursor(win_id)
+        local current_line = cursor_pos[1]
+        
+        -- Try to get the line content at cursor
+        local buf = vim.api.nvim_win_get_buf(win_id)
+        local ok, line_content = pcall(vim.api.nvim_buf_get_lines, buf, current_line-1, current_line, false)
+        
+        if ok and line_content and #line_content > 0 then
+          -- Try to extract dir name from the line (mini.files format)
+          local current_entry = line_content[1]:match("^%s*(.+)$")
+          if current_entry and current_entry ~= ".." then
+            -- Check if it's a directory
+            local full_path = win_data.path .. "/" .. current_entry
+            if vim.fn.isdirectory(full_path) == 1 then
+              -- Found a directory at cursor - use this location
+              return full_path
+            end
+          end
+        end
+        
+        -- If we couldn't get a directory from cursor, return current window path
         return win_data.path
       end
     end
   end
   
-  -- Fallback to checking buffer variables
+  -- Fallback to checking buffer variables (older versions)
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) then
       local buf = vim.api.nvim_win_get_buf(win)
       local ok, mini_files_data = pcall(vim.api.nvim_buf_get_var, buf, "mini_files")
-      if ok and mini_files_data and mini_files_data.current_dir then
-        return mini_files_data.current_dir
+      if ok and mini_files_data then
+        -- Check if current cursor is on a directory
+        local cursor_pos = vim.api.nvim_win_get_cursor(win)
+        local current_line = cursor_pos[1]
+        
+        -- If we can get the current line content
+        local line_ok, line_content = pcall(vim.api.nvim_buf_get_lines, buf, current_line-1, current_line, false)
+        if line_ok and line_content and #line_content > 0 then
+          -- Try to extract dir name from the line
+          local current_entry = line_content[1]:match("^%s*(.+)$")
+          if current_entry and current_entry ~= ".." then
+            -- Check if it's a directory
+            local full_path = mini_files_data.current_dir .. "/" .. current_entry
+            if vim.fn.isdirectory(full_path) == 1 then
+              -- Found directory at cursor position using buffer vars
+              return full_path
+            end
+          end
+        end
+        
+        -- If cursor position doesn't give us a directory, use the current directory
+        if mini_files_data.current_dir then
+          return mini_files_data.current_dir
+        end
       end
     end
   end
   
-  -- Fallback to current directory
+  -- Fallback to current working directory as a last resort
   return vim.fn.getcwd()
 end
 
@@ -971,7 +1071,14 @@ local function show_snippets_fzf(snippets, callback)
     }
     
     -- Build preview content
-    local lines = {"Files to be created " .. dir_text .. ":", ""}
+    local parent_folder = "current directory"
+    if current_root_dir then
+      -- Get the parent folder name for clearer display
+      parent_folder = vim.fn.fnamemodify(current_root_dir, ":t")
+    end
+    
+    -- More descriptive location message
+    local lines = {"Files to be created in folder: " .. parent_folder, ""}
     
     -- Add files first
     if current_snippet_data and current_snippet_data.files then
@@ -980,8 +1087,10 @@ local function show_snippets_fzf(snippets, callback)
       for _, file_entry in ipairs(current_snippet_data.files) do
         -- Use the folder_name variable directly in file paths
         local file_path = replace_variables(file_entry.path, variables)
-        -- Don't show absolute paths in preview, keep it relative
-        table.insert(lines, "  • " .. file_path)
+        
+        -- Show parent folder in the preview for better context
+        local display_path = parent_folder .. "/" .. file_path
+        table.insert(lines, "  • " .. display_path)
       end
     else
       table.insert(lines, "Files:")
@@ -1827,7 +1936,51 @@ function M.mini_files_snippet(opts)
   -- Get the current directory from mini.files
   local current_dir = get_mini_files_current_dir()
   
+  if not current_dir then
+    -- Print debugging info to help diagnose why we can't get the directory
+    local debug_info = {
+      "Could not determine mini.files directory. Debugging info:",
+      "Current window: " .. vim.api.nvim_get_current_win(),
+      "Current buffer: " .. vim.api.nvim_get_current_buf(),
+      "Working directory: " .. vim.fn.getcwd()
+    }
+    
+    -- Check if this buffer is a mini.files buffer
+    local cur_buf = vim.api.nvim_get_current_buf()
+    local ok, buf_type = pcall(vim.api.nvim_buf_get_option, cur_buf, "filetype") 
+    if ok then
+      table.insert(debug_info, "Buffer filetype: " .. buf_type)
+    end
+    
+    -- Try to see what's loaded
+    local has_mini, mini = pcall(require, "mini.files")
+    if has_mini then
+      table.insert(debug_info, "mini.files is loaded")
+      if mini.get_explorer_state then
+        local state = mini.get_explorer_state()
+        if state then
+          table.insert(debug_info, "Explorer state exists")
+          if state.windows then
+            table.insert(debug_info, "Windows: " .. vim.inspect(#state.windows))
+          end
+        else
+          table.insert(debug_info, "No explorer state found")
+        end
+      end
+    end
+    
+    vim.notify(table.concat(debug_info, "\n"), vim.log.levels.WARN)
+    return
+  end
+  
+  -- Let the user know which directory we're using
+  local parent_folder = vim.fn.fnamemodify(current_dir, ":t")
+  vim.notify("Creating template in: " .. parent_folder, vim.log.levels.INFO)
+  
+  -- Ensure we pass the mini.files directory as root_dir
   local new_opts = vim.tbl_extend("force", opts, { root_dir = current_dir })
+  
+  -- Make sure we're forcing the use of the mini.files directory
   M.select_snippet(new_opts)
 end
 
