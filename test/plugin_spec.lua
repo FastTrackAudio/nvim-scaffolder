@@ -1,8 +1,9 @@
-local example = require('nvim-plugin-template').example
+local scaffolder = require('scaffolder')
 
-describe('neovim plugin', function()
-  it('work as expect', function()
-    local result = example()
-    assert.is_true(result)
+describe('scaffolder', function()
+  it('provides required functions', function()
+    assert.is_table(scaffolder)
+    assert.is_function(scaffolder.setup)
+    assert.is_function(scaffolder.select_snippet)
   end)
 end)

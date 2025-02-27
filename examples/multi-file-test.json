@@ -1,0 +1,26 @@
+{
+  "name": "Multi-File Test",
+  "description": "Creates a test directory structure with TypeScript files",
+  "files": [
+    {
+      "path": "${name}/index.ts",
+      "content": "export * from './${name:kebab}.service';\nexport * from './${name:kebab}.hooks';\n"
+    },
+    {
+      "path": "${name}/${name:kebab}.service.ts",
+      "content": "// ${name:pascal} Service\nconsole.log('This is the ${name} service');\n\nexport const ${name:camel}Service = {\n  getData: () => ({\n    id: '123',\n    name: '${name:pascal}'\n  })\n};\n"
+    },
+    {
+      "path": "${name}/${name:kebab}.hooks.ts",
+      "content": "// ${name:pascal} Hooks\nimport { ${name:camel}Service } from './${name:kebab}.service';\n\nconsole.log('This is the ${name} hooks file');\n\nexport const use${name:pascal} = () => {\n  return ${name:camel}Service.getData();\n};\n"
+    },
+    {
+      "path": "${name}/__tests__/",
+      "content": ""
+    },
+    {
+      "path": "${name}/types/${name:kebab}.type.ts",
+      "content": "// ${name:pascal} Type Definition\nexport type ${name:pascal} = {\n  id: string;\n  name: string;\n};\n"
+    }
+  ]
+}

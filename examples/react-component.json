@@ -1,0 +1,22 @@
+{
+  "name": "React Component",
+  "description": "Creates a React component with styles and tests",
+  "files": [
+    {
+      "path": "${name:pascal}/${name:pascal}.tsx",
+      "content": "import React from 'react';\nimport styles from './${name:kebab}.module.css';\n\ninterface ${name:pascal}Props {\n  title?: string;\n}\n\nexport const ${name:pascal}: React.FC<${name:pascal}Props> = ({ title }) => {\n  return (\n    <div className={styles.container}>\n      <h2>{title || '${name:pascal}'}</h2>\n      <p>This is the ${name} component</p>\n    </div>\n  );\n};\n\nexport default ${name:pascal};\n"
+    },
+    {
+      "path": "${name:pascal}/${name:kebab}.module.css",
+      "content": ".container {\n  padding: 1rem;\n  border: 1px solid #eaeaea;\n  border-radius: 0.5rem;\n  margin: 1rem 0;\n  background-color: #fafafa;\n}\n"
+    },
+    {
+      "path": "${name:pascal}/${name:kebab}.test.tsx",
+      "content": "import React from 'react';\nimport { render, screen } from '@testing-library/react';\nimport { ${name:pascal} } from './${name:pascal}';\n\ndescribe('${name:pascal} Component', () => {\n  it('renders with default title', () => {\n    render(<${name:pascal} />);\n    expect(screen.getByText('${name:pascal}')).toBeInTheDocument();\n  });\n\n  it('renders with custom title', () => {\n    render(<${name:pascal} title=\"Custom Title\" />);\n    expect(screen.getByText('Custom Title')).toBeInTheDocument();\n  });\n});\n"
+    },
+    {
+      "path": "${name:pascal}/index.ts",
+      "content": "export { ${name:pascal} } from './${name:pascal}';\nexport type { ${name:pascal}Props } from './${name:pascal}';\n"
+    }
+  ]
+}

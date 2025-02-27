@@ -1,0 +1,118 @@
+*scaffolder.txt*  For NVIM v0.8.0 Last change: 2025 February 12
+
+==============================================================================
+Table of Contents                                 *scaffolder-table-of-contents*
+
+1. Scaffolder                                                     *scaffolder*
+  - Usage                                                  *scaffolder-usage*
+  - Mini.files Integration                        *scaffolder-minifiles-integration*
+  - Configuration                                    *scaffolder-configuration*
+  - Commands                                              *scaffolder-commands*
+  - Mappings                                              *scaffolder-mappings*
+  - Snippet Format                                   *scaffolder-snippet-format*
+  - Case Transformations                       *scaffolder-case-transformations*
+
+==============================================================================
+1. Scaffolder                                                     *scaffolder*
+
+Neovim plugin that creates directories and files from JSON snippet templates.
+
+USAGE                                                      *scaffolder-usage*
+
+1. Install the plugin using your favorite plugin manager.
+2. Run the `:MultiFileSnippet` command to launch the FZF picker and select a snippet.
+3. When prompted, enter a name to use for the variable replacement.
+4. Files and directories will be created relative to your current directory.
+
+The plugin looks for snippets in two locations:
+- User snippets: `~/.config/nvim/snippets/multi-file/`
+- Built-in snippets: Included in the plugin (no setup required)
+
+MINI.FILES INTEGRATION                        *scaffolder-minifiles-integration*
+
+For a more intuitive experience, the plugin integrates with mini.files:
+
+1. Open mini.files using your preferred method (e.g., `:lua MiniFiles.open()`)
+2. Navigate to the directory where you want to create your new structure
+3. Press `<C-m>` or run `:MiniFilesSnippet` command
+4. Select a snippet and enter a name
+5. Files will be created relative to your current directory in mini.files
+
+When mini.files is opened, you'll see a notification reminding you of the
+available keyboard shortcut to create a new directory from a template.
+
+CONFIGURATION                                        *scaffolder-configuration*
+
+No configuration is required for basic usage. The plugin provides sensible
+defaults that work out of the box. You can customize the behavior in your init.lua:
+
+```lua
+require('scaffolder').setup({
+  snippet_dir = '~/my-snippets',  -- Custom snippets directory
+  show_version_on_startup = true, -- Show full version info at startup
+})
+```
+
+COMMANDS                                                  *scaffolder-commands*
+
+:MultiFileSnippet                    Opens FZF to select a snippet template
+:MiniFilesSnippet                    Same as above, but specifically for mini.files
+:ScaffolderVersion                   Display the current plugin version
+
+MAPPINGS                                                  *scaffolder-mappings*
+
+When using mini.files, the following mapping is automatically added:
+
+<C-m>                                Create directory from snippet in mini.files
+
+SNIPPET FORMAT                                       *scaffolder-snippet-format*
+
+Snippets are defined in JSON files with the following structure:
+
+```json
+{
+  "name": "Example Snippet",
+  "description": "Creates a basic directory structure",
+  "files": [
+    {
+      "path": "${name}/index.ts",
+      "content": "export * from './${name:kebab}.service';\n"
+    },
+    {
+      "path": "${name}/${name:kebab}.service.ts",
+      "content": "console.log('This is the ${name:pascal} service');\n"
+    },
+    {
+      "path": "${name}/__tests__/",
+      "content": ""
+    },
+    {
+      "path": "${name}/types/${name:kebab}.type.ts",
+      "content": "export type ${name:pascal} = {\n  id: string;\n};\n"
+    }
+  ]
+}
+```
+
+CASE TRANSFORMATIONS                           *scaffolder-case-transformations*
+
+Format specifiers provide consistent case transformations from any input format:
+
+${name}         - As entered (e.g., "test")
+${name:pascal}  - PascalCase (e.g., "TestName" from any input format)
+${name:camel}   - camelCase (e.g., "testName" from any input format)
+${name:snake}   - snake_case (e.g., "test_name" from any input format)
+${name:kebab}   - kebab-case (e.g., "test-name" from any input format)
+${name:upper}   - UPPER_CASE (e.g., "TEST_NAME" from any input format)
+
+For example, all of these inputs will produce consistent results in each format:
+  `test-file`, `TESTFILE`, `Test_File`, `testFile`, `TestFile`
+
+Format specifiers are included after the variable name with a colon, like:
+${name:pascal}
+
+For compatibility, the legacy variable names are still supported:
+${Name}, ${name_snake}, ${name_kebab}, ${name_camel}, ${NAME}
+
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:
